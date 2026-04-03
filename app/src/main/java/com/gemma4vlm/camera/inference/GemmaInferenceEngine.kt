@@ -2,6 +2,7 @@ package com.gemma4vlm.camera.inference
 
 import android.graphics.Bitmap
 import android.util.Log
+import com.gemma4vlm.camera.BuildConfig
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -18,6 +19,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -55,12 +57,23 @@ class GemmaInferenceEngine {
         useGpu: Boolean = true,
     ): InitResult = withContext(Dispatchers.IO) {
         try {
+            val modelFile = File(modelPath)
+            if (!modelFile.isAbsolute) {
+                return@withContext InitResult(success = false, error = "Model path must be absolute")
+            }
+            if (!modelFile.exists() || !modelFile.isFile) {
+                return@withContext InitResult(success = false, error = "Model file not found at specified path")
+            }
+            if (!modelPath.endsWith(".litertlm")) {
+                return@withContext InitResult(success = false, error = "Model file must be a .litertlm file")
+            }
+
             val backend = if (useGpu) Backend.GPU() else Backend.CPU()
 
             val config = EngineConfig(
                 modelPath = modelPath,
                 backend = backend,
-                visionBackend = Backend.GPU(),
+                visionBackend = if (useGpu) Backend.GPU() else Backend.CPU(),
                 cacheDir = cacheDir,
             )
 
@@ -95,7 +108,8 @@ class GemmaInferenceEngine {
             if (useGpu) {
                 return@withContext initialize(modelPath, cacheDir, useGpu = false)
             }
-            InitResult(success = false, error = e.message ?: "Unknown error")
+            Log.e(TAG, "CPU init also failed", e)
+            InitResult(success = false, error = "Failed to initialize model engine")
         }
     }
 
@@ -127,7 +141,9 @@ class GemmaInferenceEngine {
             val conv = conversation ?: throw IllegalStateException("Engine not initialized")
 
             val imageBytes = bitmapToJpegBytes(bitmap)
-            Log.d(TAG, "Sending image: ${imageBytes.size} bytes, prompt: \"$prompt\"")
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Sending image: ${imageBytes.size} bytes, prompt: \"$prompt\"")
+            }
 
             var tokenCount = 0
             conv.sendMessageAsync(
@@ -138,10 +154,14 @@ class GemmaInferenceEngine {
             ).collect { message ->
                 tokenCount++
                 val text = message.toString()
-                Log.d(TAG, "Token #$tokenCount: \"$text\" (${text.length} chars)")
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Token #$tokenCount: \"$text\" (${text.length} chars)")
+                }
                 emit(text)
             }
-            Log.d(TAG, "Streaming complete: $tokenCount tokens")
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Streaming complete: $tokenCount tokens")
+            }
         }
     }.flowOn(Dispatchers.IO)
 

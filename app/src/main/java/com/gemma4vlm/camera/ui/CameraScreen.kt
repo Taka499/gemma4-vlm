@@ -2,6 +2,7 @@ package com.gemma4vlm.camera.ui
 
 import android.graphics.Bitmap
 import android.util.Log
+import com.gemma4vlm.camera.BuildConfig
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -85,7 +86,7 @@ fun CameraScreen(engine: GemmaInferenceEngine) {
     var frameCount by remember { mutableIntStateOf(0) }
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
-    val logFile = remember { File(context.getExternalFilesDir(null), "inference_log.txt") }
+    val logFile = if (BuildConfig.DEBUG) remember { File(context.cacheDir, "inference_log.txt") } else null
 
     // Periodic inference loop
     LaunchedEffect(isPaused, captureIntervalSec) {
@@ -101,15 +102,17 @@ fun CameraScreen(engine: GemmaInferenceEngine) {
                         engine.describeImageStreaming(bmp)
                             .catch { e ->
                                 Log.e("CameraScreen", "Inference error", e)
-                                description = "Error: ${e.message}"
+                                description = "Inference failed. Check logcat for details."
                             }
                             .collect { token ->
                                 accumulated += token
                                 description = accumulated
                             }
                         frameCount++
-                        val elapsed = System.currentTimeMillis() - startTime
-                        appendToLog(logFile, frameCount, elapsed, description)
+                        if (logFile != null) {
+                            val elapsed = System.currentTimeMillis() - startTime
+                            appendToLog(logFile, frameCount, elapsed, description)
+                        }
                     } finally {
                         inferenceTimeMs = System.currentTimeMillis() - startTime
                         isInferring = false
@@ -388,8 +391,13 @@ private fun ControlsRow(
     }
 }
 
+private const val MAX_LOG_SIZE = 512 * 1024L // 512 KB
+
 private fun appendToLog(logFile: File, frame: Int, timeMs: Long, text: String) {
     try {
+        if (logFile.length() > MAX_LOG_SIZE) {
+            logFile.writeText("") // truncate
+        }
         val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         logFile.appendText("=== Frame #$frame | $ts | ${timeMs}ms ===\n$text\n\n")
     } catch (e: Exception) {
