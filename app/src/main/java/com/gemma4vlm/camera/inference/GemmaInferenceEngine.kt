@@ -3,6 +3,7 @@ package com.gemma4vlm.camera.inference
 import android.graphics.Bitmap
 import android.util.Log
 import com.gemma4vlm.camera.BuildConfig
+import com.gemma4vlm.camera.PromptPreferences
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -55,6 +56,7 @@ class GemmaInferenceEngine {
         modelPath: String,
         cacheDir: String,
         useGpu: Boolean = true,
+        systemInstruction: String = PromptPreferences.DEFAULT_SYSTEM_INSTRUCTION,
     ): InitResult = withContext(Dispatchers.IO) {
         try {
             val modelFile = File(modelPath)
@@ -84,16 +86,9 @@ class GemmaInferenceEngine {
             eng.initialize()
             engine = eng
 
-            // Create a persistent conversation with a vision-oriented system prompt.
+            // Create a persistent conversation with the user-provided system prompt.
             val convConfig = ConversationConfig(
-                systemInstruction = Contents.of(
-                    Content.Text(
-                        "You are a real-time camera assistant. " +
-                        "Describe what you see in the image concisely in 1-2 sentences. " +
-                        "Focus on the main objects, people, and actions visible. " +
-                        "Be direct and specific."
-                    )
-                ),
+                systemInstruction = Contents.of(Content.Text(systemInstruction)),
                 samplerConfig = SamplerConfig(
                     topK = 20,
                     topP = 0.9,
@@ -109,7 +104,7 @@ class GemmaInferenceEngine {
             Log.e(TAG, "Engine init failed, falling back to CPU", e)
             // Fallback: try CPU if GPU failed
             if (useGpu) {
-                return@withContext initialize(modelPath, cacheDir, useGpu = false)
+                return@withContext initialize(modelPath, cacheDir, useGpu = false, systemInstruction = systemInstruction)
             }
             Log.e(TAG, "CPU init also failed", e)
             InitResult(success = false, error = "Failed to initialize model engine")

@@ -15,10 +15,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +38,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -43,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.gemma4vlm.camera.PromptPreferences
 import com.gemma4vlm.camera.ui.theme.ErrorRed
 import com.gemma4vlm.camera.ui.theme.PrimaryBlue
 import com.gemma4vlm.camera.ui.theme.SecondaryGreen
@@ -78,12 +85,17 @@ enum class GemmaModel(
 fun ModelSetupScreen(
     loadingState: LoadingState,
     errorMessage: String?,
-    onLoadModel: (String) -> Unit,
+    initialSystemInstruction: String,
+    initialFramePrompt: String,
+    onLoadModel: (modelPath: String, systemInstruction: String, framePrompt: String) -> Unit,
 ) {
     val models = GemmaModel.entries
     var selectedIndex by remember { mutableIntStateOf(0) }
     val selectedModel = models[selectedIndex]
     var modelPath by remember { mutableStateOf(models[0].defaultPath) }
+    var systemInstruction by remember { mutableStateOf(initialSystemInstruction) }
+    var framePrompt by remember { mutableStateOf(initialFramePrompt) }
+    var advancedExpanded by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -213,9 +225,95 @@ fun ModelSetupScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Advanced settings (collapsible)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { advancedExpanded = !advancedExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Advanced",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = PrimaryBlue,
+                        )
+                        Icon(
+                            imageVector = if (advancedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (advancedExpanded) "Collapse" else "Expand",
+                            tint = PrimaryBlue,
+                        )
+                    }
+
+                    AnimatedVisibility(visible = advancedExpanded) {
+                        Column(modifier = Modifier.padding(top = 12.dp)) {
+                            OutlinedTextField(
+                                value = systemInstruction,
+                                onValueChange = { systemInstruction = it },
+                                label = { Text("System instruction") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Description,
+                                        contentDescription = null,
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 3,
+                                maxLines = 6,
+                                enabled = loadingState != LoadingState.Loading,
+                            )
+                            if (systemInstruction != PromptPreferences.DEFAULT_SYSTEM_INSTRUCTION) {
+                                TextButton(
+                                    onClick = { systemInstruction = PromptPreferences.DEFAULT_SYSTEM_INSTRUCTION },
+                                    modifier = Modifier.align(Alignment.End),
+                                ) {
+                                    Text("Reset to default")
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedTextField(
+                                value = framePrompt,
+                                onValueChange = { framePrompt = it },
+                                label = { Text("Per-frame prompt") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Chat,
+                                        contentDescription = null,
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                enabled = loadingState != LoadingState.Loading,
+                            )
+                            if (framePrompt != PromptPreferences.DEFAULT_FRAME_PROMPT) {
+                                TextButton(
+                                    onClick = { framePrompt = PromptPreferences.DEFAULT_FRAME_PROMPT },
+                                    modifier = Modifier.align(Alignment.End),
+                                ) {
+                                    Text("Reset to default")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Load button
             Button(
-                onClick = { onLoadModel(modelPath) },
+                onClick = { onLoadModel(modelPath, systemInstruction, framePrompt) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),

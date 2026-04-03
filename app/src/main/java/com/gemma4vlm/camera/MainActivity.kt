@@ -69,6 +69,9 @@ private fun MainFlow() {
     val scope = rememberCoroutineScope()
     val engine = remember { GemmaInferenceEngine() }
 
+    val (savedInstruction, savedPrompt) = remember { PromptPreferences.load(context) }
+    var systemInstruction by remember { mutableStateOf(savedInstruction) }
+    var framePrompt by remember { mutableStateOf(savedPrompt) }
     var loadingState by remember { mutableStateOf(LoadingState.Idle) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var modelLoaded by remember { mutableStateOf(false) }
@@ -78,12 +81,17 @@ private fun MainFlow() {
     }
 
     if (modelLoaded) {
-        CameraScreen(engine = engine)
+        CameraScreen(engine = engine, framePrompt = framePrompt)
     } else {
         ModelSetupScreen(
             loadingState = loadingState,
             errorMessage = errorMessage,
-            onLoadModel = { path ->
+            initialSystemInstruction = systemInstruction,
+            initialFramePrompt = framePrompt,
+            onLoadModel = { path, sysInstr, prompt ->
+                systemInstruction = sysInstr
+                framePrompt = prompt
+                PromptPreferences.save(context, sysInstr, prompt)
                 scope.launch {
                     loadingState = LoadingState.Loading
                     errorMessage = null
@@ -93,6 +101,7 @@ private fun MainFlow() {
                     val result = engine.initialize(
                         modelPath = path,
                         cacheDir = cacheDir,
+                        systemInstruction = sysInstr,
                     )
 
                     if (result.success) {

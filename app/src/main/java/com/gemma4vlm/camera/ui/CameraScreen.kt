@@ -72,7 +72,7 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 @Composable
-fun CameraScreen(engine: GemmaInferenceEngine) {
+fun CameraScreen(engine: GemmaInferenceEngine, framePrompt: String) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -89,7 +89,7 @@ fun CameraScreen(engine: GemmaInferenceEngine) {
     val logFile = if (BuildConfig.DEBUG) remember { File(context.cacheDir, "inference_log.txt") } else null
 
     // Periodic inference loop
-    LaunchedEffect(isPaused, captureIntervalSec) {
+    LaunchedEffect(isPaused, captureIntervalSec, framePrompt) {
         while (true) {
             delay(captureIntervalSec * 1000L)
             if (!isPaused && engine.isReady) {
@@ -99,7 +99,7 @@ fun CameraScreen(engine: GemmaInferenceEngine) {
                     val startTime = System.currentTimeMillis()
                     try {
                         var accumulated = ""
-                        engine.describeImageStreaming(bmp)
+                        engine.describeImageStreaming(bmp, framePrompt)
                             .catch { e ->
                                 Log.e("CameraScreen", "Inference error", e)
                                 description = "Inference failed. Check logcat for details."
