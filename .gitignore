@@ -1,0 +1,29 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.log
+*.tmp
+*.bak
+*.swp
+*.hprof
+
+# Model files (too large for git)
+*.litertlm
+*.gguf
+*.task
+*.safetensors
+
+# OS
+.DS_Store
+Thumbs.db
