@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.gemma4vlm.camera.inference.GemmaInferenceEngine
 import com.gemma4vlm.camera.ui.CameraScreen
@@ -64,6 +65,7 @@ private fun AppContent() {
 
 @Composable
 private fun MainFlow() {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val engine = remember { GemmaInferenceEngine() }
 
@@ -86,11 +88,7 @@ private fun MainFlow() {
                     loadingState = LoadingState.Loading
                     errorMessage = null
 
-                    val cacheDir = android.os.Environment.getExternalStorageDirectory()
-                        ?.resolve("Android/data/com.gemma4vlm.camera/cache")
-                        ?.also { it.mkdirs() }
-                        ?.absolutePath
-                        ?: "/data/local/tmp/cache"
+                    val cacheDir = context.cacheDir.absolutePath
 
                     val result = engine.initialize(
                         modelPath = path,
