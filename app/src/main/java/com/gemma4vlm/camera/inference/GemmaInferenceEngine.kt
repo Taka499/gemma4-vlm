@@ -23,7 +23,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Wraps LiteRT-LM Engine for Gemma 4 E2B vision inference.
+ * Wraps LiteRT-LM Engine for Gemma 4 vision inference (E2B / E4B).
  *
  * Usage:
  *   1. Call [initialize] with the model path on a background thread.
@@ -48,7 +48,7 @@ class GemmaInferenceEngine {
     data class InitResult(val success: Boolean, val error: String? = null)
 
     /**
-     * Load the Gemma 4 E2B model. Call from a coroutine on Dispatchers.IO.
+     * Load a Gemma 4 model. Call from a coroutine on Dispatchers.IO.
      * [cacheDir] speeds up subsequent loads.
      */
     suspend fun initialize(
@@ -62,7 +62,10 @@ class GemmaInferenceEngine {
                 return@withContext InitResult(success = false, error = "Model path must be absolute")
             }
             if (!modelFile.exists() || !modelFile.isFile) {
-                return@withContext InitResult(success = false, error = "Model file not found at specified path")
+                return@withContext InitResult(
+                    success = false,
+                    error = "Model file not found at:\n$modelPath\n\nPush the model to the device with adb first.",
+                )
             }
             if (!modelPath.endsWith(".litertlm")) {
                 return@withContext InitResult(success = false, error = "Model file must be a .litertlm file")

@@ -23,14 +23,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,15 +51,39 @@ enum class LoadingState {
     Idle, Loading, Success, Error
 }
 
+enum class GemmaModel(
+    val displayName: String,
+    val fileName: String,
+    val hfRepo: String,
+    val sizeLabel: String,
+) {
+    E2B(
+        displayName = "E2B (2.3B)",
+        fileName = "gemma-4-E2B-it.litertlm",
+        hfRepo = "litert-community/gemma-4-E2B-it-litert-lm",
+        sizeLabel = "~2.6 GB · lower RAM",
+    ),
+    E4B(
+        displayName = "E4B (4.5B)",
+        fileName = "gemma-4-E4B-it.litertlm",
+        hfRepo = "litert-community/gemma-4-E4B-it-litert-lm",
+        sizeLabel = "~3.7 GB · higher quality",
+    );
+
+    val defaultPath: String get() = "/data/local/tmp/$fileName"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelSetupScreen(
     loadingState: LoadingState,
     errorMessage: String?,
     onLoadModel: (String) -> Unit,
 ) {
-    var modelPath by remember {
-        mutableStateOf("/data/local/tmp/gemma-4-E2B-it.litertlm")
-    }
+    val models = GemmaModel.entries
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    val selectedModel = models[selectedIndex]
+    var modelPath by remember { mutableStateOf(models[0].defaultPath) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -92,6 +121,44 @@ fun ModelSetupScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Model variant selector
+            Text(
+                text = "Model variant",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                models.forEachIndexed { index, model ->
+                    SegmentedButton(
+                        selected = index == selectedIndex,
+                        onClick = {
+                            val wasDefault = modelPath == models[selectedIndex].defaultPath
+                            selectedIndex = index
+                            if (wasDefault) modelPath = model.defaultPath
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = models.size,
+                        ),
+                        enabled = loadingState != LoadingState.Loading,
+                    ) {
+                        Text(model.displayName)
+                    }
+                }
+            }
+
+            Text(
+                text = selectedModel.sizeLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Setup instructions card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -112,15 +179,14 @@ fun ModelSetupScreen(
                         text = "1. Install HuggingFace CLI:\n" +
                                "   pip install -U huggingface_hub\n\n" +
                                "2. Download the LiteRT-LM model:\n" +
-                               "   hf download litert-community/\n" +
-                               "   gemma-4-E2B-it-litert-lm \\\n" +
-                               "   gemma-4-E2B-it.litertlm \\\n" +
+                               "   hf download ${selectedModel.hfRepo} \\\n" +
+                               "   ${selectedModel.fileName} \\\n" +
                                "   --local-dir ./gemma4-model\n\n" +
                                "3. Push to device via ADB:\n" +
                                "   adb push ./gemma4-model/\n" +
-                               "   gemma-4-E2B-it.litertlm \\\n" +
+                               "   ${selectedModel.fileName} \\\n" +
                                "   /data/local/tmp/\n\n" +
-                               "Source: google/gemma-4-E2B-it (Apache 2.0)",
+                               "Source: google/gemma-4-${selectedModel.name}-it (Apache 2.0)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                     )
@@ -182,7 +248,7 @@ fun ModelSetupScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Initializing Gemma 4 E2B engine...\nThis may take 10-30 seconds on first load.",
+                        text = "Initializing Gemma 4 ${selectedModel.name} engine...\nThis may take 10-30 seconds on first load.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                     )

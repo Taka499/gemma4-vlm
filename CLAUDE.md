@@ -14,15 +14,22 @@ No tests or linter configured.
 
 ## Model
 
-Gemma 4 E2B-it (`.litertlm`, ~2.58 GB) must be on the device — not bundled in the APK.
+Supports Gemma 4 **E2B-it** (~2.6 GB) and **E4B-it** (~3.7 GB). Model selector on setup screen. Either `.litertlm` file must be on the device — not bundled in the APK.
 
 ```bash
+# E2B (smaller, lower RAM)
 hf download litert-community/gemma-4-E2B-it-litert-lm \
   gemma-4-E2B-it.litertlm --local-dir ./gemma4-model
 adb push ./gemma4-model/gemma-4-E2B-it.litertlm /data/local/tmp/
+
+# E4B (larger, higher quality)
+hf download litert-community/gemma-4-E4B-it-litert-lm \
+  gemma-4-E4B-it.litertlm --local-dir ./gemma4-model
+adb push ./gemma4-model/gemma-4-E4B-it.litertlm /data/local/tmp/
 ```
 
-Default path in app: `/data/local/tmp/gemma-4-E2B-it.litertlm`
+Default paths: `/data/local/tmp/gemma-4-{E2B,E4B}-it.litertlm`
+Model variants defined in `GemmaModel` enum (`ui/ModelSetupScreen.kt`).
 
 ## Architecture
 
