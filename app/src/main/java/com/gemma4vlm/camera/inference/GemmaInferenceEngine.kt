@@ -80,8 +80,8 @@ class GemmaInferenceEngine {
                 ),
                 samplerConfig = SamplerConfig(
                     topK = 20,
-                    topP = 0.9f,
-                    temperature = 0.4f,
+                    topP = 0.9,
+                    temperature = 0.4,
                 ),
             )
             conversation = eng.createConversation(convConfig)
@@ -103,7 +103,7 @@ class GemmaInferenceEngine {
      * Send a camera frame to the VLM and stream back the description token by token.
      * Only one inference runs at a time; concurrent calls wait.
      */
-    fun describeImage(bitmap: Bitmap, prompt: String = "What do you see?"): Flow<String> = flow {
+    fun describeImage(bitmap: Bitmap, prompt: String = "What do you see?"): Flow<String> = flow<String> {
         inferenceMutex.withLock {
             val conv = conversation ?: throw IllegalStateException("Engine not initialized")
 
@@ -115,14 +115,14 @@ class GemmaInferenceEngine {
                     Content.Text(prompt),
                 )
             )
-            emit(response.text)
+            emit(response.toString())
         }
     }.flowOn(Dispatchers.IO)
 
     /**
      * Streaming variant — emits partial tokens as they arrive.
      */
-    fun describeImageStreaming(bitmap: Bitmap, prompt: String = "What do you see?"): Flow<String> = flow {
+    fun describeImageStreaming(bitmap: Bitmap, prompt: String = "What do you see?"): Flow<String> = flow<String> {
         inferenceMutex.withLock {
             val conv = conversation ?: throw IllegalStateException("Engine not initialized")
 
@@ -134,7 +134,7 @@ class GemmaInferenceEngine {
                     Content.Text(prompt),
                 )
             ).collect { message ->
-                emit(message.text)
+                emit(message.toString())
             }
         }
     }.flowOn(Dispatchers.IO)
