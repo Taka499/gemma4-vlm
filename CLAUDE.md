@@ -1,27 +1,20 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Build & Run
 
-This is a single-module Android app (Kotlin + Jetpack Compose). Open in Android Studio for the easiest workflow — it handles Gradle wrapper, SDK, and device management.
+Single-module Android app (Kotlin 2.3.0 + Jetpack Compose). Open in Android Studio — it handles Gradle wrapper, SDK, and device management.
 
 ```bash
-# Build debug APK
-./gradlew assembleDebug
-
-# Install directly to connected device
-./gradlew installDebug
-
-# Launch on device
+./gradlew assembleDebug        # build
+./gradlew installDebug         # install to device
 adb shell am start -n com.gemma4vlm.camera/.MainActivity
 ```
 
-No tests exist yet. No linter is configured.
+No tests or linter configured.
 
-## Model Setup
+## Model
 
-The app requires a Gemma 4 E2B-it model file (`.litertlm` format, ~2.58 GB) on the device at runtime. It is **not** bundled in the APK.
+Gemma 4 E2B-it (`.litertlm`, ~2.58 GB) must be on the device — not bundled in the APK.
 
 ```bash
 hf download litert-community/gemma-4-E2B-it-litert-lm \
@@ -29,56 +22,53 @@ hf download litert-community/gemma-4-E2B-it-litert-lm \
 adb push ./gemma4-model/gemma-4-E2B-it.litertlm /data/local/tmp/
 ```
 
-Default model path in the app: `/data/local/tmp/gemma-4-E2B-it.litertlm`
+Default path in app: `/data/local/tmp/gemma-4-E2B-it.litertlm`
 
 ## Architecture
-
-Two-screen app with a shared inference engine:
 
 ```
 MainActivity
   ├─ Permission gate (Accompanist)
   └─ MainFlow
-      ├─ ModelSetupScreen → user provides model path → engine.initialize()
-      └─ CameraScreen (after model loads)
-          ├─ CameraX preview + ImageAnalysis (continuous frame capture)
-          ├─ Periodic inference loop (LaunchedEffect with configurable delay)
-          └─ Streaming description overlay
+      ├─ ModelSetupScreen → engine.initialize()
+      └─ CameraScreen
+          ├─ CameraX preview + ImageAnalysis (frame capture)
+          ├─ Periodic inference loop (LaunchedEffect, configurable 2/3/5/10s)
+          └─ Streaming description overlay (animateContentSize)
 ```
 
-**GemmaInferenceEngine** (`inference/GemmaInferenceEngine.kt`) is the core:
-- Wraps LiteRT-LM `Engine` + `Conversation` with a persistent vision-oriented system prompt
-- GPU backend by default, automatic CPU fallback on init failure
-- Mutex-serialized inference — only one frame processed at a time
-- Images downscaled to 512px max, JPEG-compressed before passing to the model
-- Exposes both blocking (`describeImage`) and streaming (`describeImageStreaming`) flows
+**GemmaInferenceEngine** (`inference/GemmaInferenceEngine.kt`):
+- Wraps LiteRT-LM `Engine` + `Conversation` with vision system prompt
+- GPU by default, auto CPU fallback
+- Mutex-serialized — one frame at a time
+- Images downscaled to 512px max, JPEG 85%
+- `describeImageStreaming()` emits **individual tokens** (not accumulated) — caller must concatenate
 
-**Camera → VLM pipeline**: CameraX `ImageAnalysis` writes the latest frame to a `Bitmap` variable. A `LaunchedEffect` coroutine wakes every N seconds (2/3/5/10s, user-configurable), grabs the latest bitmap, sends it through the engine, and updates the description state which recomposes the overlay card.
+**Camera → VLM pipeline** (`ui/CameraScreen.kt`):
+- `ImageAnalysis` captures latest frame as `Bitmap`
+- `LaunchedEffect` loop grabs bitmap every N seconds, streams through engine
+- Tokens accumulated into description string, displayed in overlay card
+- Each completed inference appended to `inference_log.txt`
 
-## Key Dependencies
+## Debugging
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| LiteRT-LM | 0.10.0 | On-device Gemma 4 inference (GPU/CPU) |
-| CameraX | 1.4.1 | Camera preview + frame capture |
-| Compose BOM | 2024.12.01 | UI framework (Material 3) |
-| Accompanist | 0.36.0 | Runtime permission handling |
+```bash
+# Pull inference log (frame #, timestamp, duration, full text)
+adb pull /sdcard/Android/data/com.gemma4vlm.camera/files/inference_log.txt
 
-## Android Config
+# Logcat with inference detail (token-level)
+adb logcat -s GemmaInference:D CameraScreen:D
+```
 
-- **minSdk 28**, targetSdk/compileSdk 35
-- AndroidManifest declares `CAMERA` permission and `libOpenCL.so` / `libvndksupport.so` native libraries (required for LiteRT-LM GPU backend)
-- ProGuard keeps all `com.google.ai.edge.litertlm.**` classes
-
-## Debugging (on-device)
-
-Use `/logcat-clear` before reproducing, then `/logcat` to dump errors.
-`adb` path: `~/Library/Android/sdk/platform-tools/adb` (add to PATH or use full path).
+`adb` path: `~/Library/Android/sdk/platform-tools/adb`
 
 ## Gotchas
 
-- LiteRT-LM 0.10.0 is compiled with Kotlin 2.3.0 — project must use Kotlin 2.3.0+
-- Kotlin 2.3.0 removed `kotlinOptions` DSL — use `kotlin { compilerOptions { } }` instead
-- LiteRT-LM `Message` has no `.text` property — use `.toString()` for response text
+- LiteRT-LM 0.10.0 requires Kotlin 2.3.0+ (compiled against it)
+- Kotlin 2.3.0 removed `kotlinOptions` DSL — use `kotlin { compilerOptions { } }`
+- `Message` has no `.text` — use `.toString()` which chains `Contents.toString()` → `Content.Text.text`
+- `sendMessageAsync` emits individual tokens per `Message`, not accumulated text
 - `SamplerConfig` params (`topP`, `temperature`) are `Double`, not `Float`
-- Use `context.cacheDir` for LiteRT-LM cache, not `Environment.getExternalStorageDirectory()` (scoped storage)
+- Use `context.cacheDir` for LiteRT-LM cache (scoped storage)
+- AndroidManifest requires `libOpenCL.so` + `libvndksupport.so` for GPU backend
+- ProGuard must keep `com.google.ai.edge.litertlm.**`
