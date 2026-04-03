@@ -59,7 +59,7 @@ MainActivity
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| LiteRT-LM | 0.10.1 | On-device Gemma 4 inference (GPU/CPU) |
+| LiteRT-LM | 0.10.0 | On-device Gemma 4 inference (GPU/CPU) |
 | CameraX | 1.4.1 | Camera preview + frame capture |
 | Compose BOM | 2024.12.01 | UI framework (Material 3) |
 | Accompanist | 0.36.0 | Runtime permission handling |
@@ -69,3 +69,16 @@ MainActivity
 - **minSdk 28**, targetSdk/compileSdk 35
 - AndroidManifest declares `CAMERA` permission and `libOpenCL.so` / `libvndksupport.so` native libraries (required for LiteRT-LM GPU backend)
 - ProGuard keeps all `com.google.ai.edge.litertlm.**` classes
+
+## Debugging (on-device)
+
+Use `/logcat-clear` before reproducing, then `/logcat` to dump errors.
+`adb` path: `~/Library/Android/sdk/platform-tools/adb` (add to PATH or use full path).
+
+## Gotchas
+
+- LiteRT-LM 0.10.0 is compiled with Kotlin 2.3.0 — project must use Kotlin 2.3.0+
+- Kotlin 2.3.0 removed `kotlinOptions` DSL — use `kotlin { compilerOptions { } }` instead
+- LiteRT-LM `Message` has no `.text` property — use `.toString()` for response text
+- `SamplerConfig` params (`topP`, `temperature`) are `Double`, not `Float`
+- Use `context.cacheDir` for LiteRT-LM cache, not `Environment.getExternalStorageDirectory()` (scoped storage)

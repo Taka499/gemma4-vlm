@@ -8,9 +8,6 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,6 +64,10 @@ import com.gemma4vlm.camera.ui.theme.PrimaryBlue
 import com.gemma4vlm.camera.ui.theme.SecondaryGreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 @Composable
@@ -83,6 +85,7 @@ fun CameraScreen(engine: GemmaInferenceEngine) {
     var frameCount by remember { mutableIntStateOf(0) }
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    val logFile = remember { File(context.getExternalFilesDir(null), "inference_log.txt") }
 
     // Periodic inference loop
     LaunchedEffect(isPaused, captureIntervalSec) {
@@ -94,15 +97,19 @@ fun CameraScreen(engine: GemmaInferenceEngine) {
                     isInferring = true
                     val startTime = System.currentTimeMillis()
                     try {
+                        var accumulated = ""
                         engine.describeImageStreaming(bmp)
                             .catch { e ->
                                 Log.e("CameraScreen", "Inference error", e)
                                 description = "Error: ${e.message}"
                             }
                             .collect { token ->
-                                description = token
+                                accumulated += token
+                                description = accumulated
                             }
                         frameCount++
+                        val elapsed = System.currentTimeMillis() - startTime
+                        appendToLog(logFile, frameCount, elapsed, description)
                     } finally {
                         inferenceTimeMs = System.currentTimeMillis() - startTime
                         isInferring = false
@@ -282,7 +289,9 @@ private fun DescriptionCard(
     isInferring: Boolean,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = OverlayCard),
     ) {
@@ -313,18 +322,12 @@ private fun DescriptionCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White,
-                    lineHeight = 24.sp,
-                )
-            }
+            Text(
+                text = description.replace("\n", " ").trim(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+                lineHeight = 24.sp,
+            )
         }
     }
 }
@@ -382,6 +385,15 @@ private fun ControlsRow(
                 tint = Color.White,
             )
         }
+    }
+}
+
+private fun appendToLog(logFile: File, frame: Int, timeMs: Long, text: String) {
+    try {
+        val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+        logFile.appendText("=== Frame #$frame | $ts | ${timeMs}ms ===\n$text\n\n")
+    } catch (e: Exception) {
+        Log.e("CameraScreen", "Failed to write log", e)
     }
 }
 

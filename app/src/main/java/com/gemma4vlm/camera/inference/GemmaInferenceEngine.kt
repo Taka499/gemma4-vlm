@@ -127,15 +127,21 @@ class GemmaInferenceEngine {
             val conv = conversation ?: throw IllegalStateException("Engine not initialized")
 
             val imageBytes = bitmapToJpegBytes(bitmap)
+            Log.d(TAG, "Sending image: ${imageBytes.size} bytes, prompt: \"$prompt\"")
 
+            var tokenCount = 0
             conv.sendMessageAsync(
                 Contents.of(
                     Content.ImageBytes(imageBytes),
                     Content.Text(prompt),
                 )
             ).collect { message ->
-                emit(message.toString())
+                tokenCount++
+                val text = message.toString()
+                Log.d(TAG, "Token #$tokenCount: \"$text\" (${text.length} chars)")
+                emit(text)
             }
+            Log.d(TAG, "Streaming complete: $tokenCount tokens")
         }
     }.flowOn(Dispatchers.IO)
 
