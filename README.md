@@ -45,6 +45,15 @@ adb shell am start -n com.gemma4vlm.camera/.MainActivity
 
 **4. In the app** — select your model variant (E2B or E4B), then tap "Load Model". Once loaded, the camera view streams descriptions automatically.
 
+### Customizing prompts
+
+Expand the **Advanced** section on the setup screen to edit:
+
+- **System instruction** — controls how the model behaves (e.g. response style, focus areas)
+- **Per-frame prompt** — the question asked for each camera frame (default: "What do you see?")
+
+Both settings persist across app restarts. Use the "Reset to default" buttons to restore the original values.
+
 ## How it works
 
 ```

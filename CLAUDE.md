@@ -37,15 +37,22 @@ Model variants defined in `GemmaModel` enum (`ui/ModelSetupScreen.kt`).
 MainActivity
   ├─ Permission gate (Accompanist)
   └─ MainFlow
-      ├─ ModelSetupScreen → engine.initialize()
-      └─ CameraScreen
+      ├─ ModelSetupScreen → engine.initialize(systemInstruction)
+      │   └─ Advanced section (collapsible): system instruction + per-frame prompt
+      └─ CameraScreen(framePrompt)
           ├─ CameraX preview + ImageAnalysis (frame capture)
           ├─ Periodic inference loop (LaunchedEffect, configurable 2/3/5/10s)
           └─ Streaming description overlay (animateContentSize)
 ```
 
+**PromptPreferences** (`PromptPreferences.kt`):
+- `SharedPreferences` wrapper for system instruction and per-frame prompt
+- Defaults defined as `const val` — single source of truth for reset-to-default
+- Saved on "Load Model" tap, loaded on app start
+
 **GemmaInferenceEngine** (`inference/GemmaInferenceEngine.kt`):
-- Wraps LiteRT-LM `Engine` + `Conversation` with vision system prompt
+- Wraps LiteRT-LM `Engine` + `Conversation` with user-configurable system prompt
+- `initialize()` accepts `systemInstruction` parameter (defaults to `PromptPreferences.DEFAULT_SYSTEM_INSTRUCTION`)
 - GPU by default, auto CPU fallback
 - Mutex-serialized — one frame at a time
 - Images downscaled to 512px max, JPEG 85%
