@@ -302,6 +302,9 @@ fun ModelSetupScreen(
                     }
                 }
             }
+
+            // Bottom breathing room so the button can scroll above the nav bar
+            Spacer(modifier = Modifier.height(200.dp))
         }
     }
 }
