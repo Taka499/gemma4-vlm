@@ -53,10 +53,10 @@ MainActivity
 ## Debugging
 
 ```bash
-# Pull inference log (frame #, timestamp, duration, full text)
-adb pull /sdcard/Android/data/com.gemma4vlm.camera/files/inference_log.txt
+# Pull inference log (debug builds only, written to app cache dir)
+adb shell run-as com.gemma4vlm.camera cat cache/inference_log.txt > inference_log.txt
 
-# Logcat with inference detail (token-level)
+# Logcat with inference detail (token-level, debug builds only)
 adb logcat -s GemmaInference:D CameraScreen:D
 ```
 

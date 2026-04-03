@@ -2,6 +2,8 @@
 
 Real-time camera descriptions powered by [Gemma 4 E2B-it](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm) running on-device via [LiteRT-LM](https://github.com/nicholasgasior/litert-lm). Point your phone at anything and get a streaming text description.
 
+> **Note:** This project was vibe-coded with [Claude Code](https://claude.ai/code).
+
 ## Prerequisites
 
 - Android device with **API 28+** (Android 9) and GPU support (tested on Samsung S25)
@@ -47,10 +49,10 @@ Inference runs every N seconds (2/3/5/10s, tap the speed icon to cycle). You can
 
 ## Debugging
 
-The app writes inference output to a log file on each frame:
+Debug builds write inference output to a log file (capped at 512 KB):
 
 ```bash
-adb pull /sdcard/Android/data/com.gemma4vlm.camera/files/inference_log.txt
+adb shell run-as com.gemma4vlm.camera cat cache/inference_log.txt > inference_log.txt
 ```
 
 ## Tech stack
